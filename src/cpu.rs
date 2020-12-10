@@ -133,6 +133,10 @@ impl CPU {
                 self.e = self.e.wrapping_sub(1);
                 self.zero = self.e == 0;
             }
+            0x1e => {
+                self.e = self.read_mem(self.pc);
+                self.pc += 1;
+            }
             0x20 => {
                 if !self.zero {
                     self.instr_jr();
@@ -182,6 +186,7 @@ impl CPU {
                 self.write_mem(self.hl(), self.read_mem(self.pc));
                 self.pc += 1;
             }
+            0x37 => self.carry = true,
             0x38 => {
                 if self.carry {
                     self.instr_jr();
@@ -205,6 +210,7 @@ impl CPU {
                 self.a = self.read_mem(self.pc);
                 self.pc += 1;
             }
+            0x3f => self.carry = !self.carry,
             0x41 => self.b = self.c,
             0x42 => self.b = self.d,
             0x46 => self.b = self.read_mem(self.hl()),
@@ -237,8 +243,11 @@ impl CPU {
             0x7c => self.a = self.h,
             0x7d => self.a = self.l,
             0x7e => self.a = self.read_mem(self.hl()),
+            0x80 => self.instr_add(self.b),
             0x81 => self.instr_add(self.c),
+            0x82 => self.instr_add(self.d),
             0x83 => self.instr_add(self.e),
+            0x85 => self.instr_add(self.l),
             0x87 => self.instr_add(self.a),
             0x88 => self.instr_adc(self.b),
             0x98 => self.instr_sbc(self.b),
@@ -254,6 +263,7 @@ impl CPU {
             }
             0xb0 => self.instr_or(self.b),
             0xb1 => self.instr_or(self.c),
+            0xb2 => self.instr_or(self.d),
             0xb6 => self.instr_or(self.read_mem(self.hl())),
             0xb8 => self.instr_cp(self.b),
             0xb9 => self.instr_cp(self.c),
@@ -373,6 +383,7 @@ impl CPU {
                     0x47 => self.zero = (self.a & (1 << 0)) == 0,
                     0x4f => self.zero = (self.a & (1 << 1)) == 0,
                     0x56 => self.zero = (self.read_mem(self.hl()) & (1 << 2)) == 0,
+                    0x66 => self.zero = (self.read_mem(self.hl()) & (1 << 4)) == 0,
                     0x6f => self.zero = (self.a & (1 << 5)) == 0,
                     0x87 => self.a &= !(1 << 0),
                     0x8f => self.a &= !(1 << 1),
