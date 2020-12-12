@@ -182,6 +182,16 @@ impl CPU {
                 self.sp = self.read_mem16(self.pc);
                 self.pc += 2;
             }
+            0x34 => {
+                let v = self.read_mem(self.hl()).wrapping_add(1);
+                self.zero = v == 0;
+                self.write_mem(self.hl(), 1);
+            }
+            0x35 => {
+                let v = self.read_mem(self.hl()).wrapping_sub(1);
+                self.zero = v == 0;
+                self.write_mem(self.hl(), 1);
+            }
             0x36 => {
                 self.write_mem(self.hl(), self.read_mem(self.pc));
                 self.pc += 1;
@@ -231,9 +241,12 @@ impl CPU {
             0x6b => self.l = self.e,
             0x6e => self.l = self.read_mem(self.hl()),
             0x6f => self.l = self.a,
+            0x70 => self.write_mem(self.hl(), self.b),
             0x71 => self.write_mem(self.hl(), self.c),
             0x72 => self.write_mem(self.hl(), self.d),
             0x73 => self.write_mem(self.hl(), self.e),
+            0x74 => self.write_mem(self.hl(), self.h),
+            0x75 => self.write_mem(self.hl(), self.l),
             0x76 => {}
             0x77 => self.write_mem(self.hl(), self.a),
             0x78 => self.a = self.b,
@@ -360,6 +373,10 @@ impl CPU {
             }
             0xf3 => self.ime = false,
             0xf5 => self.push(self.af()),
+            0xf6 => {
+                self.instr_or(self.read_mem(self.pc));
+                self.pc += 1;
+            }
             0xfa => {
                 let addr = self.read_mem16(self.pc);
                 self.pc += 2;
@@ -377,23 +394,105 @@ impl CPU {
                     0x1b => self.e = self.instr_rr(self.e),
                     0x23 => self.e = self.instr_sla(self.e),
                     0x2a => self.e = self.instr_sra(self.e),
-                    0x37 => self.a = self.a >> 4 | (self.a & 0x0f) << 4,
+                    0x30 => self.b = self.instr_swap(self.b),
+                    0x31 => self.c = self.instr_swap(self.c),
+                    0x32 => self.d = self.instr_swap(self.d),
+                    0x33 => self.e = self.instr_swap(self.e),
+                    0x34 => self.h = self.instr_swap(self.h),
+                    0x35 => self.l = self.instr_swap(self.l),
+                    0x36 => {
+                        let v = self.instr_swap(self.read_mem(self.hl()));
+                        self.write_mem(self.hl(), v);
+                    }
+                    0x37 => self.a = self.instr_swap(self.a),
                     0x3f => self.a = self.instr_srl(self.a),
                     0x46 => self.zero = (self.read_mem(self.hl()) & (1 << 0)) == 0,
                     0x47 => self.zero = (self.a & (1 << 0)) == 0,
+                    0x4e => self.zero = (self.read_mem(self.hl()) & (1 << 1)) == 0,
                     0x4f => self.zero = (self.a & (1 << 1)) == 0,
+                    0x50 => self.zero = (self.b & (1 << 2)) == 0,
+                    0x51 => self.zero = (self.c & (1 << 2)) == 0,
+                    0x52 => self.zero = (self.d & (1 << 2)) == 0,
+                    0x53 => self.zero = (self.e & (1 << 2)) == 0,
+                    0x54 => self.zero = (self.h & (1 << 2)) == 0,
+                    0x55 => self.zero = (self.l & (1 << 2)) == 0,
                     0x56 => self.zero = (self.read_mem(self.hl()) & (1 << 2)) == 0,
+                    0x57 => self.zero = (self.a & (1 << 2)) == 0,
+                    0x58 => self.zero = (self.b & (1 << 3)) == 0,
+                    0x59 => self.zero = (self.c & (1 << 3)) == 0,
+                    0x5a => self.zero = (self.d & (1 << 3)) == 0,
+                    0x5b => self.zero = (self.e & (1 << 3)) == 0,
+                    0x5c => self.zero = (self.h & (1 << 3)) == 0,
+                    0x5d => self.zero = (self.l & (1 << 3)) == 0,
+                    0x5e => self.zero = (self.read_mem(self.hl()) & (1 << 3)) == 0,
+                    0x5f => self.zero = (self.a & (1 << 3)) == 0,
                     0x66 => self.zero = (self.read_mem(self.hl()) & (1 << 4)) == 0,
                     0x6f => self.zero = (self.a & (1 << 5)) == 0,
+                    0x70 => self.zero = (self.b & (1 << 6)) == 0,
+                    0x71 => self.zero = (self.c & (1 << 6)) == 0,
+                    0x72 => self.zero = (self.d & (1 << 6)) == 0,
+                    0x73 => self.zero = (self.e & (1 << 6)) == 0,
+                    0x74 => self.zero = (self.h & (1 << 6)) == 0,
+                    0x75 => self.zero = (self.l & (1 << 6)) == 0,
+                    0x76 => self.zero = (self.read_mem(self.hl()) & (1 << 6)) == 0,
+                    0x77 => self.zero = (self.a & (1 << 6)) == 0,
+                    0x78 => self.zero = (self.b & (1 << 7)) == 0,
+                    0x79 => self.zero = (self.c & (1 << 7)) == 0,
+                    0x7a => self.zero = (self.d & (1 << 7)) == 0,
+                    0x7b => self.zero = (self.e & (1 << 7)) == 0,
+                    0x7c => self.zero = (self.h & (1 << 7)) == 0,
+                    0x7d => self.zero = (self.l & (1 << 7)) == 0,
+                    0x7e => self.zero = (self.read_mem(self.hl()) & (1 << 7)) == 0,
+                    0x7f => self.zero = (self.a & (1 << 7)) == 0,
+                    0x80 => self.b &= !(1 << 0),
+                    0x81 => self.c &= !(1 << 0),
+                    0x82 => self.d &= !(1 << 0),
+                    0x83 => self.e &= !(1 << 0),
+                    0x84 => self.h &= !(1 << 0),
+                    0x85 => self.l &= !(1 << 0),
+                    0x86 => self.write_mem(self.hl(), self.read_mem(self.hl()) & !(1 << 0)),
                     0x87 => self.a &= !(1 << 0),
+                    0x88 => self.b &= !(1 << 1),
+                    0x89 => self.c &= !(1 << 1),
+                    0x8a => self.d &= !(1 << 1),
+                    0x8b => self.e &= !(1 << 1),
+                    0x8c => self.h &= !(1 << 1),
+                    0x8d => self.l &= !(1 << 1),
+                    0x8e => self.write_mem(self.hl(), self.read_mem(self.hl()) & !(1 << 1)),
                     0x8f => self.a &= !(1 << 1),
+                    0x90 => self.b &= !(1 << 2),
+                    0x91 => self.c &= !(1 << 2),
+                    0x92 => self.d &= !(1 << 2),
+                    0x93 => self.e &= !(1 << 2),
+                    0x94 => self.h &= !(1 << 2),
+                    0x95 => self.l &= !(1 << 2),
+                    0x96 => self.write_mem(self.hl(), self.read_mem(self.hl()) & !(1 << 2)),
                     0x97 => self.a &= !(1 << 2),
                     0xa2 => self.d &= !(1 << 4),
                     0xa6 => self.write_mem(self.hl(), self.read_mem(self.hl()) & !(1 << 4)),
                     0xae => self.write_mem(self.hl(), self.read_mem(self.hl()) & !(1 << 5)),
                     0xaf => self.a &= !(1 << 5),
+                    0xd0 => self.b |= 1 << 2,
+                    0xd1 => self.c |= 1 << 2,
+                    0xd2 => self.d |= 1 << 2,
+                    0xd3 => self.e |= 1 << 2,
+                    0xd4 => self.h |= 1 << 2,
+                    0xd5 => self.l |= 1 << 2,
                     0xd6 => self.write_mem(self.hl(), self.read_mem(self.hl()) | (1 << 2)),
-                    _ => panic!("Unknown opcode: {:04x}:cb:{:02x}", pc, self.read_mem(next_pc)),
+                    0xd7 => self.a |= 1 << 2,
+                    0xd8 => self.b |= 1 << 3,
+                    0xd9 => self.c |= 1 << 3,
+                    0xda => self.d |= 1 << 3,
+                    0xdb => self.e |= 1 << 3,
+                    0xdc => self.h |= 1 << 3,
+                    0xdd => self.l |= 1 << 3,
+                    0xde => self.write_mem(self.hl(), self.read_mem(self.hl()) | (1 << 3)),
+                    0xdf => self.a |= 1 << 3,
+                    _ => panic!(
+                        "Unknown opcode: {:04x}:cb:{:02x}",
+                        pc,
+                        self.read_mem(next_pc)
+                    ),
                 }
             }
             _ => panic!("Unknown opcode: {:04x}:{:02x}", pc, self.read_mem(pc)),
@@ -434,6 +533,8 @@ impl CPU {
             return (self.start_time.elapsed().as_nanos() & 0xff) as u8;
         } else if addr == 0xff0f {
             return self.reg_if;
+        } else if addr == 0xff25 {
+            return 0;
         } else if addr == 0xff40 {
             return self.video.lcdc;
         } else if addr == 0xff41 {
@@ -684,5 +785,10 @@ impl CPU {
         self.carry = (value & 0x01) == 0x01;
         self.zero = result == 0;
         return result;
+    }
+
+    fn instr_swap(&mut self, value: u8) -> u8 {
+        self.zero = value == 0;
+        return value >> 4 | (value & 0x0f) << 4;
     }
 }
